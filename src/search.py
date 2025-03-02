@@ -9,8 +9,12 @@ import time
 import signal
 import random
 import cv2
+import matplotlib
+matplotlib.use('TkAgg')  # or 'Agg' if you dont need a window
+
 import matplotlib.pyplot as plt
 import numpy as np
+
 
 pan_servo = Servo(constants.CAMERA_SERVOS['pan'])
 tilt_servo = Servo(constants.CAMERA_SERVOS['tilt'])
@@ -288,6 +292,53 @@ def get_optimal_degree_heading(sonar_data):
 	return deg_heading
 
 
+def detect_green_ball(image: np.ndarray):
+    """
+    Detects a green ball in the input image, draws a rectangle around it,
+    and returns the modified image along with the center coordinates.
+    
+    :param image: Input image in BGR format (numpy array)
+    :return: (modified_image, (center_x, center_y)) or (image, None) if no ball is found
+    """
+
+    # Define lower and upper bounds for green color in HSV
+    LOWER_GREEN = np.array([40, 40, 40])   # Adjust based on lighting conditions
+    UPPER_GREEN = np.array([80, 255, 255]) # Adjust for best detection
+
+    # Convert BGR image to HSV
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+    # Create a binary mask where green colors are in range
+    mask = cv2.inRange(hsv, LOWER_GREEN, UPPER_GREEN)
+
+    # Find contours in the mask
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    if contours:
+        # Find the largest contour (assumed to be the green ball)
+        largest_contour = max(contours, key=cv2.contourArea)
+
+        # Get bounding rectangle around the green object
+        x, y, w, h = cv2.boundingRect(largest_contour)
+        
+        if w * h < 3000:
+            return image, None, None
+
+        # Compute center of the rectangle
+        center_x, center_y = x + w // 2, y + h // 2
+
+        # Draw the rectangle and center point on the image
+        cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        cv2.circle(image, (center_x, center_y), 5, (0, 0, 255), -1)
+
+        # Display center coordinates
+        cv2.putText(image, f"({center_x}, {center_y}) Area: {w*h}", (x, y - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+
+        return image, (center_x, center_y), (w, h)
+    
+    return image, None, None # No green ball found
+
 
 if __name__ == '__main__':
 	def signal_handler(sig, frame):
@@ -299,7 +350,6 @@ if __name__ == '__main__':
 	
 	
 	while True:
-		
 		data = scan_strip(100)
 		heading = get_optimal_degree_heading(data)
 		print(data)

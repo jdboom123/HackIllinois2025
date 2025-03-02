@@ -192,7 +192,7 @@ class Button2Screen(QtWidgets.QWidget):
     def button2press(self):
         print("Button Pressed")
         if self.process is None:
-                self.process = subprocess.Popen["python", "test.py"]
+                self.process = subprocess.Popen["python", "3d_scan.py"]
         self.stacked_widget.setCurrentIndex(1)
         
     def button3press(self):
